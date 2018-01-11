@@ -9,17 +9,20 @@ import java.util.regex.Pattern;
 
 import static com.google.common.collect.Sets.union;
 import static org.apache.commons.lang3.Validate.notNull;
+import static org.slf4j.LoggerFactory.getLogger;
 
 public class JiraKeyParser {
-	private static final Pattern JIRA_KEY = Pattern.compile("[A-Z]+-\\d+\\+?");
+	private String jiraUri; 
 	private static final Set<Character> ALWAYS_VALID = new HashSet<>(Arrays.asList(' ', '\t', '\n'));
 
 	private final Set<Character> whitelistedPrefixes;
 	private final Set<Character> whitelistedSuffixes;
+	private Pattern jiraKey;
 
-	public JiraKeyParser(Set<Character> whitelistedPrefixes, Set<Character> whitelistedSuffixes) {
+	public JiraKeyParser(Set<Character> whitelistedPrefixes, Set<Character> whitelistedSuffixes, String jiraUri) {
 		this.whitelistedPrefixes = union(notNull(whitelistedPrefixes), ALWAYS_VALID);
 		this.whitelistedSuffixes = union(notNull(whitelistedSuffixes), ALWAYS_VALID);
+		this.jiraUri = jiraUri;
 	}
 
 	private static Set<Pair<Character, Character>> parseContexts(String key, String text) {
@@ -38,12 +41,17 @@ public class JiraKeyParser {
 		}
 		return contexts;
 	}
-
+	private Pattern getJiraKey() {
+		if ( this.jiraKey == null ) { 
+			this.jiraKey = Pattern.compile("(?:" + Pattern.quote(this.jiraUri+"/browse/") + ")?([A-Z]+-\\d+\\+?)");
+		}
+		return this.jiraKey;
+	}
 	Map<String, Boolean> parse(String text) {
-		Matcher matcher = JIRA_KEY.matcher(text);
+		Matcher matcher = this.getJiraKey().matcher(text);
 		Map<String, Boolean> jiraKeys = new HashMap<>();
 		while (matcher.find()) {
-			String key = matcher.group();
+			String key = matcher.group(1);
 			if (!hasValidContext(key, text)) {
 				continue;
 			}
